@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 
-router = APIRouter(prefix="/nodes", tags=["Nodes"])
+router = APIRouter(prefix="/v1/nodes", tags=["Nodes"])
 
 
 @router.get("/")
