@@ -1,26 +1,21 @@
-import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, UTC
-from app import schemas
+import jwt
+from app.database import get_db
+from app import schemas, models
 from app.config import settings
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='auth/login')
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 REFRESH_TOKEN_EXPIRE_MINUTES = settings.refresh_token_expire_minutes
 
-
 def create_access_token(data: dict):
-    """
-    Creates an access token by encoding the input data in a JWT token.
-    
-    Parameters:
-        - data (dict): The data to be encoded in the token (email, role, access in this case).
-    
-    Returns:
-        - str: The encoded JWT access token.
-    """
-    to_encode = data.copy() # Data to be encoded in JWT token (email, role and access in this case).
+    to_encode = data.copy() # Data to be encoded in JWT token (email and id in this case).
 
     expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
@@ -29,17 +24,9 @@ def create_access_token(data: dict):
 
     return encoded_jwt
 
+
 def create_refresh_token(data: dict):
-    """
-    Creates a refresh token by encoding the input data in a JWT token.
-    
-    Parameters:
-        - data (dict): The data to be encoded in the token (email, role, access).
-    
-    Returns:
-        - str: The encoded JWT refresh token.
-    """
-    to_encode = data.copy() # Data to be encoded in JWT token (email, role and access in this case).
+    to_encode = data.copy() # Data to be encoded in JWT token (email and id in this case).
     
     expire = datetime.now(UTC) + timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
@@ -48,36 +35,32 @@ def create_refresh_token(data: dict):
 
     return encoded_jwt
 
+
 def verify_access_token(token: str, credentials_exception):
-    """
-    Verify the access token by decoding the token using the secret key and algorithm.
-    
-    Parameters:
-    - token (str): The access token to be verified.
-    - credentials_exception: The exception to be raised if credentials are invalid.
-    
-    Returns:
-    - TokenData: The token data containing the user's email.
-    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        id: int = payload.get("id")
+        if id is None:
+            raise credentials_exception
+        
         email: str = payload.get("email")
         if email is None:
             raise credentials_exception
         
-        role: schemas.Role = payload.get("role")
+        token_data = schemas.TokenData(id=id, email=email)
 
-        if role is None:
-            raise credentials_exception
-        
-        access: schemas.Access = payload.get("access")
-
-        if access is None:
-            raise credentials_exception
-
-        token_data = schemas.TokenData(email=email, role=role, access=access)
-    
     except jwt.ExpiredSignatureError:
         raise credentials_exception
-    
+
     return token_data
+
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Could not validate credentials", headers={"WWW-Authenticate" "Bearer"})
+
+    token_data = verify_access_token(token, credentials_exception)
+
+    user = db.query(models.User).filter(models.User.email == token_data.email).first()
+
+    return user
