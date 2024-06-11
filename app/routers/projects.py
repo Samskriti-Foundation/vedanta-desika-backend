@@ -14,8 +14,7 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
         projects = db.query(models.Project).all()
 
     else:
-        project_ids = db.query(models.user_project_association).filter(models.user_project_association.c["user_id"] == current_user.id)
-        project_ids = [id[0] for id in project_ids]
+        project_ids = db.query(models.UserProjectAssociation.project_id).filter(models.UserProjectAssociation.user_id == current_user.id).all()
         projects = db.query(models.Project).filter(models.Project.id.in_(project_ids)).all()
 
     return projects
@@ -23,12 +22,9 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
 
 @router.get("/{project_id}", response_model=schemas.ProjectOut)
 def get_project(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(oauth2.get_current_user)):
-    owner = db.query(models.user_project_association).filter(models.user_project_association.c["project_id"] == project_id, models.user_project_association.c["role"] == "OWNER").first()
+    owner = db.query(models.UserProjectAssociation).filter(models.UserProjectAssociation.project_id == project_id, models.UserProjectAssociation.role == "OWNER").first()
     
-    if owner:
-        owner_id = owner[0]
-    
-    if current_user.is_superuser or owner and owner_id == current_user.id:
+    if current_user.is_superuser or owner and owner.user_id == current_user.id:
         project = db.query(models.Project).filter(models.Project.id == project_id).first()
         
         if not project:
@@ -41,14 +37,14 @@ def get_project(project_id: int, db: Session = Depends(get_db), current_user: mo
 
 @router.post("/")
 def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db), current_user: models.User = Depends(oauth2.get_current_user)):
-    db_project = models.Project(name=project.name, description=project.description)
+    project = models.Project(name=project.name, description=project.description)
 
-    db.add(db_project)
+    db.add(project)
     db.commit()
-    db.refresh(db_project)
+    db.refresh(project)
 
-    add_owner = models.user_project_association(project_id=db_project.id, user_id=current_user.id, role="OWNER")
-    db.add(add_owner)
+    owner = models.UserProjectAssociation(project_id=project.id, user_id=current_user.id, role="OWNER")
+    db.add(owner)
     db.commit()
 
-    return JSONResponse(status_code=status.HTTP_201_CREATED, content={"id": db_project.id})
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content={"id": project.id})

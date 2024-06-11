@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Enum
-from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from .database import Base
 
@@ -31,9 +30,6 @@ class UserProjectAssociation(Base):
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
     project_id = Column(Integer, ForeignKey("projects.id"), primary_key=True)
     role = Column(Enum("OWNER","ADMIN", "MEMBER", name="role"), default="MEMBER", nullable=False)
-    
-    user = relationship("User", back_populates="projects")
-    project = relationship("Project", back_populates="users")
 
 
 class Node(Base):
