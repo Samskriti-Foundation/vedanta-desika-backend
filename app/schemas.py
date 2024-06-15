@@ -33,8 +33,13 @@ class NodeBase(BaseModel):
     project_id: int
 
 
-class NodeCreate(NodeBase):
+class NodeCreate(BaseModel):
+    name: str
     parent_id: int
+
+
+class NodeUpdate(BaseModel):
+    name: str
 
 
 class Token(BaseModel):

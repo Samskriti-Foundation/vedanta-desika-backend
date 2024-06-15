@@ -37,6 +37,11 @@ def get_project(project_id: int, db: Session = Depends(get_db), current_user: mo
 
 @router.post("/")
 def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db), current_user: models.User = Depends(oauth2.get_current_user)):
+    db_project = db.query(models.Project).filter(models.Project.name == project.name).first()
+    
+    if db_project:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Project with name {project.name} exists")
+    
     project = models.Project(name=project.name, description=project.description)
 
     db.add(project)

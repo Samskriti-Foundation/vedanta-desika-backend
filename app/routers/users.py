@@ -15,9 +15,9 @@ def get_users(db: Session = Depends(get_db)):
     return db_users
 
 
-@router.get("/{id}", response_model=schemas.UserOut)
-def get_user(id: int, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.id == id).first()
+@router.get("/{user_id}", response_model=schemas.UserOut)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return db_user
